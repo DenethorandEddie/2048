@@ -249,7 +249,14 @@ useEffect(() => {
         </section>
 
         {/* Board */}
-        <div ref={wrapRef} className="select-none" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+          <div
+            ref={wrapRef}
+            className="select-none"
+            style={{ touchAction: 'none' }} // 📌 mobilde sayfa kaymasını engeller
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
+          >
+
           <div className={`relative mx-auto rounded-3xl border p-[12px] ${isDark ? 'border-white/10 bg-black/20 backdrop-blur' : 'border-zinc-300 bg-white/70'}`} style={{ width: sizePx, height: sizePx }}>
             <div className="absolute inset-0 p-[12px] grid gap-2" style={{ gridTemplateColumns: `repeat(${n},1fr)`, gridTemplateRows: `repeat(${n},1fr)` }}>
               {Array.from({ length: n * n }).map((_, i) => (
