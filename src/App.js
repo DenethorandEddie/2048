@@ -1,8 +1,8 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// 2048+ — Clean, responsive build. English UI, Dark/Light, premium modals & polished header.
-// Win modal shows once until Keep Going. State persisted (cookies + localStorage).
+// 2048+ — Minimal, colorful, and calm. Dark/Light themes, refined header, pastel tiles, glassy modals.
+// Mobile-friendly (touchAction: none), single-spawn, proper win/over logic, state persisted (cookie+localStorage).
 
 // ---------- utils ----------
 const rnd = (n) => Math.floor(Math.random() * n);
@@ -84,12 +84,57 @@ const loadLocal   = () => { try { const s = localStorage.getItem(STORE_KEY); ret
 const persist     = (obj) => { saveLocal(obj); saveCookie(obj); };
 const loadPersist = () => loadLocal() || loadCookie();
 
-// ---------- visuals ----------
-const tileColor = (v, theme) => {
-  const dark = { 2:'bg-gray-300 text-gray-900',4:'bg-gray-400 text-gray-900',8:'bg-yellow-500 text-white',16:'bg-orange-500 text-white',32:'bg-red-500 text-white',64:'bg-red-600 text-white',128:'bg-green-500 text-white',256:'bg-green-600 text-white',512:'bg-blue-500 text-white',1024:'bg-indigo-500 text-white',2048:'bg-purple-500 text-white',4096:'bg-purple-600 text-white',8192:'bg-purple-700 text-white' };
-  const light = { 2:'bg-gray-200 text-gray-900',4:'bg-gray-300 text-gray-900',8:'bg-yellow-400 text-white',16:'bg-orange-400 text-white',32:'bg-red-400 text-white',64:'bg-red-500 text-white',128:'bg-green-400 text-white',256:'bg-green-500 text-white',512:'bg-blue-400 text-white',1024:'bg-indigo-400 text-white',2048:'bg-purple-400 text-white',4096:'bg-purple-500 text-white',8192:'bg-purple-600 text-white' };
-  return (theme === 'light' ? light : dark)[v] || 'bg-pink-500 text-white';
+// ---------- theming & visuals ----------
+const palettes = {
+  light: {
+    bg: "bg-[radial-gradient(80%_60%_at_50%_0%,#f7faff_0%,#eef2ff_40%,#e9eefc_100%)] text-zinc-900",
+    surface: "bg-white/80 border-zinc-300",
+    subtle: "bg-white/60 border-zinc-200",
+    glass: "bg-white/70 backdrop-blur border-zinc-200",
+    track: "bg-zinc-200 border-zinc-300",
+  },
+  dark: {
+    bg: "bg-[radial-gradient(80%_60%_at_50%_0%,#0c1024_0%,#0b1120_40%,#0a0f1a_100%)] text-white",
+    surface: "bg-white/5 border-white/10",
+    subtle: "bg-white/7 border-white/10",
+    glass: "bg-black/40 backdrop-blur-xl border-white/10",
+    track: "bg-black/30 border-white/10",
+  }
 };
+
+const tileStyle = (v, theme) => {
+  // calm pastel gradient swatches per value
+  const base = theme === 'light'
+    ? {
+        2:  "from-[#D9FBFF] to-[#CFE8FF] text-zinc-800",
+        4:  "from-[#E7F9D9] to-[#CFF6C8] text-zinc-800",
+        8:  "from-[#FFE6C7] to-[#FFD6A5] text-zinc-900",
+        16: "from-[#FFD2E1] to-[#FFC2DD] text-zinc-900",
+        32: "from-[#FFD9D6] to-[#FFB4A2] text-zinc-900",
+        64: "from-[#F9D3FF] to-[#E5B8FF] text-zinc-900",
+        128:"from-[#D7F3FF] to-[#A5E4FF] text-zinc-900",
+        256:"from-[#D7FFF1] to-[#B2F7EF] text-zinc-900",
+        512:"from-[#E5F0FF] to-[#C4D7FF] text-zinc-900",
+        1024:"from-[#E6E1FF] to-[#CDBAFF] text-zinc-900",
+        2048:"from-[#FFECC7] to-[#FFD36E] text-zinc-900",
+      }
+    : {
+        2:  "from-[#243b55] to-[#141e30] text-white",
+        4:  "from-[#0f2027] to-[#203a43] text-white",
+        8:  "from-[#42275a] to-[#734b6d] text-white",
+        16: "from-[#283c86] to-[#45a247] text-white",
+        32: "from-[#614385] to-[#516395] text-white",
+        64: "from-[#457fca] to-[#5691c8] text-white",
+        128:"from-[#3a1c71] to-[#d76d77] text-white",
+        256:"from-[#36d1dc] to-[#5b86e5] text-white",
+        512:"from-[#00b09b] to-[#96c93d] text-white",
+        1024:"from-[#f7971e] to-[#ffd200] text-white",
+        2048:"from-[#d53369] to-[#daae51] text-white",
+      };
+  const sw = base[v] || base[2048];
+  return `bg-gradient-to-br ${sw}`;
+};
+
 const fontSizeFor = (v) => (v < 128 ? '32px' : v < 1024 ? '34px' : v < 2048 ? '32px' : v < 4096 ? '28px' : '26px');
 
 export default function Game2048() {
@@ -155,7 +200,7 @@ export default function Game2048() {
     }, 140);
   }
 
-  // load persisted
+  // load persisted once
   useEffect(() => {
     const saved = loadPersist();
     if (saved && saved.tiles && Array.isArray(saved.tiles)) {
@@ -166,12 +211,12 @@ export default function Game2048() {
       if (typeof saved.keptGoing === 'boolean') setKeptGoing(saved.keptGoing);
       setTiles(saved.tiles);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-useEffect(() => { 
-  persist({ n, tiles, score, best, theme, keptGoing }); 
-}, [n, tiles, score, best, theme, keptGoing]);
+  // persist prefs & non-volatile state
+  useEffect(() => { 
+    persist({ n, tiles, score, best, theme, keptGoing }); 
+  }, [n, tiles, score, best, theme, keptGoing]);
 
   // keyboard
   useEffect(() => {
@@ -186,41 +231,39 @@ useEffect(() => {
     return () => window.removeEventListener('keydown', onKey);
   }, [tiles, n, busy, over, keptGoing, step]);
 
-  // touch
+  // touch: keep page from scrolling when swiping inside board
   const swipe = useRef({ x: 0, y: 0 });
   const onTouchStart = (e) => { const t = e.touches[0]; swipe.current = { x: t.clientX, y: t.clientY }; };
   const onTouchEnd = (e) => { const t = e.changedTouches[0]; const dx = t.clientX - swipe.current.x; const dy = t.clientY - swipe.current.y; if (Math.max(Math.abs(dx), Math.abs(dy)) < 28) return; step(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'R' : 'L') : (dy > 0 ? 'D' : 'U')); };
 
   const isDark = theme === 'dark';
-  const appTheme = isDark ? "bg-gradient-to-br from-[#0b1020] via-[#0d1428] to-[#0f0e1d] text-white" : "bg-gradient-to-br from-white via-slate-50 to-indigo-50 text-zinc-900";
+  const pal = isDark ? palettes.dark : palettes.light;
+  const appTheme = pal.bg;
   const sizePx = cell * n + GAP * (n + 1);
   const maxTile = Math.max(0, ...tiles.map((t) => t.value));
 
-  // ---- Header subcomponents (polished & cohesive) ----
+  // ---- Header (compact, balanced) ----
   const SizeSegment = () => (
-    <div className={`rounded-xl border px-1 py-1 flex gap-1 ${isDark ? 'border-white/10 bg-white/5 backdrop-blur' : 'border-zinc-300 bg-white/80'}`}>
+    <div className={`rounded-full border px-1 py-1 flex gap-1 ${pal.surface}`}>
       {[4,5].map((s) => (
-        <button key={s} onClick={() => reset(s)} className={`min-h-11 px-3 py-1.5 rounded-lg text-sm transition ${n===s ? (isDark?'bg-emerald-600 text-white shadow':'bg-emerald-500 text-white shadow') : (isDark?'hover:bg-white/10':'hover:bg-zinc-100')}`}>{s}×{s}</button>
+        <button key={s} onClick={() => reset(s)} className={`min-h-10 px-3 rounded-full text-sm transition font-medium ${n===s ? (isDark? 'bg-emerald-600 text-white shadow-sm':'bg-emerald-500 text-white shadow-sm') : 'hover:bg-white/10'}`}>
+          {s}×{s}
+        </button>
       ))}
     </div>
   );
 
   const ThemeToggle = () => {
-    const TRACK_W = 96; // w-24
-    const KNOB_W  = 56; // custom wider knob for nicer look
-    const PADDING = 4;  // p-1
+    const TRACK_W = 96, KNOB_W = 52, PADDING = 4;
     const x = isDark ? 0 : TRACK_W - KNOB_W - PADDING*2;
     return (
-      <button aria-pressed={isDark} title="Toggle theme" onClick={() => setTheme((t)=>t==='dark'?'light':'dark')} className={`relative w-24 h-10 rounded-full border overflow-hidden ${isDark? 'border-white/10 bg-black/30 backdrop-blur':'border-zinc-300 bg-zinc-200'}`}>
-        {/* animated gradient background sweep */}
-        <motion.div key={theme} initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ duration:0.25 }} className={`${isDark? 'bg-gradient-to-r from-zinc-900/60 to-zinc-700/60':'bg-gradient-to-r from-yellow-200/60 to-orange-200/60'} absolute inset-0`} />
-        {/* icons */}
-        <div className="absolute inset-0 pointer-events-none flex items-center justify-between px-3 text-xs z-10">
+      <button aria-pressed={isDark} title="Toggle theme" onClick={() => setTheme((t)=>t==='dark'?'light':'dark')} className={`relative w-24 h-10 rounded-full border overflow-hidden ${pal.track}`}>
+        <motion.div key={theme} initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ duration:0.25 }} className={`absolute inset-0 ${isDark? 'bg-gradient-to-r from-zinc-900/40 to-zinc-700/40':'bg-gradient-to-r from-amber-200/50 to-orange-200/50'}`} />
+        <div className="absolute inset-0 pointer-events-none grid grid-cols-2 place-items-center text-sm z-10">
           <span className={`${isDark ? 'opacity-100' : 'opacity-60'}`}>🌙</span>
           <span className={`${!isDark ? 'opacity-100' : 'opacity-60'}`}>☀️</span>
         </div>
-        {/* knob */}
-        <motion.div aria-hidden className={`absolute top-1 h-8 rounded-full shadow-md z-20 ${isDark?'bg-zinc-800':'bg-yellow-300'}`} style={{ width: KNOB_W, left: PADDING }} animate={{ x }} transition={{ type:'spring', stiffness:320, damping:28 }} />
+        <motion.div aria-hidden className={`absolute top-1 h-8 rounded-full shadow-md z-20 ${isDark?'bg-zinc-800':'bg-amber-300'}`} style={{ width: KNOB_W, left: PADDING }} animate={{ x }} transition={{ type:'spring', stiffness:320, damping:28 }} />
       </button>
     );
   };
@@ -229,15 +272,15 @@ useEffect(() => {
     <div className={`min-h-screen ${appTheme} p-4 sm:p-6`}>
       <div className="max-w-xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4 sm:mb-5">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">2048+</h1>
-            <p className="text-xs sm:text-sm opacity-80">Smooth animations • Single spawn • Win & Game Over detection</p>
+            <p className="text-xs sm:text-sm opacity-80">Minimal • Colorful • Smooth</p>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <SizeSegment />
             <ThemeToggle />
-            <button onClick={() => reset(n)} className="min-h-11 px-4 py-2 rounded-xl text-sm font-semibold bg-gradient-to-tr from-emerald-500 to-emerald-400 text-white shadow hover:brightness-110">New Game</button>
+            <button onClick={() => reset(n)} className="min-h-10 px-4 rounded-full text-sm font-semibold bg-gradient-to-tr from-emerald-500 to-emerald-400 text-white shadow hover:brightness-110">New Game</button>
           </div>
         </div>
 
@@ -249,34 +292,41 @@ useEffect(() => {
         </section>
 
         {/* Board */}
-          <div
-            ref={wrapRef}
-            className="select-none"
-            style={{ touchAction: 'none' }} // 📌 mobilde sayfa kaymasını engeller
-            onTouchStart={onTouchStart}
-            onTouchEnd={onTouchEnd}
-          >
-
-          <div className={`relative mx-auto rounded-3xl border p-[12px] ${isDark ? 'border-white/10 bg-black/20 backdrop-blur' : 'border-zinc-300 bg-white/70'}`} style={{ width: sizePx, height: sizePx }}>
+        <div
+          ref={wrapRef}
+          className="select-none"
+          style={{ touchAction: 'none' }}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+        >
+          <div className={`relative mx-auto rounded-3xl border p-[12px] ${pal.glass}`} style={{ width: sizePx, height: sizePx }}>
             <div className="absolute inset-0 p-[12px] grid gap-2" style={{ gridTemplateColumns: `repeat(${n},1fr)`, gridTemplateRows: `repeat(${n},1fr)` }}>
               {Array.from({ length: n * n }).map((_, i) => (
-                <div key={i} className={`rounded-2xl ${isDark ? 'bg-white/10 border border-white/10' : 'bg-zinc-200 border border-zinc-300'}`} />
+                <div key={i} className={`rounded-2xl border ${pal.subtle}`} />
               ))}
             </div>
             <AnimatePresence initial={false}>
               {tiles.map((t) => (
-                <motion.div key={t.id} initial={{ scale: 0.75, opacity: 0 }} animate={{ scale: 1, opacity: 1, x: t.c * (cell + GAP), y: t.r * (cell + GAP) }} exit={{ scale: 0.6, opacity: 0 }} transition={{ type: 'spring', stiffness: 320, damping: 22 }} className={`absolute rounded-2xl font-black flex items-center justify-center shadow-lg ${tileColor(t.value, theme)}`} style={{ width: cell, height: cell }}>
-                  <motion.span animate={t.bump ? { scale: [1, 1.18, 1] } : {}} transition={{ duration: 0.18 }} style={{ fontSize: fontSizeFor(t.value) }}>{t.value}</motion.span>
+                <motion.div
+                  key={t.id}
+                  initial={{ scale: 0.75, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1, x: t.c * (cell + GAP), y: t.r * (cell + GAP) }}
+                  exit={{ scale: 0.6, opacity: 0 }}
+                  transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+                  className={`absolute rounded-2xl font-black flex items-center justify-center shadow-lg border border-white/10 ${tileStyle(t.value, theme)}`}
+                  style={{ width: cell, height: cell }}
+                >
+                  <motion.span animate={t.bump ? { scale: [1, 1.18, 1] } : {}} transition={{ duration: 0.18 }} style={{ fontSize: fontSizeFor(t.value), textShadow: '0 1px 0 rgba(0,0,0,.15)' }}>{t.value}</motion.span>
                 </motion.div>
               ))}
             </AnimatePresence>
           </div>
         </div>
 
-        {/* Controls */}
-        <div className="mt-4 flex gap-2">
+        {/* Controls (compact) */}
+        <div className="mt-4 flex gap-2 justify-center">
           {['U','L','D','R'].map((k) => (
-            <button key={k} onClick={() => step(k)} disabled={busy} className={`min-h-11 px-4 py-2 rounded-xl border disabled:opacity-50 ${isDark ? 'border-white/15 bg-white/5 backdrop-blur' : 'border-zinc-300 bg-white'}`}>{ { U:'↑', L:'←', D:'↓', R:'→' }[k] }</button>
+            <button key={k} onClick={() => step(k)} disabled={busy} className={`min-h-10 px-4 rounded-full border ${pal.surface} disabled:opacity-50`}>{ { U:'↑', L:'←', D:'↓', R:'→' }[k] }</button>
           ))}
         </div>
 
@@ -284,8 +334,8 @@ useEffect(() => {
         <AnimatePresence>
           {(over || win) && (
             <motion.div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <motion.div initial={{ scale: 0.9, y: 10 }} animate={{ scale: 1, y: 0 }} className={`relative max-w-sm w-full rounded-3xl p-6 shadow-2xl ${isDark ? 'bg-black/50 text-white border border-white/10 backdrop-blur-xl' : 'bg-white text-zinc-900 border border-zinc-200'}`}>
-                <motion.div className={`absolute -top-8 -right-8 h-24 w-24 rounded-full ${win ? 'bg-emerald-400/20' : 'bg-rose-400/20'}`} animate={{ scale: [1, 1.1, 1], opacity: [0.6, 0.9, 0.6] }} transition={{ repeat: Infinity, duration: 2.4 }} />
+              <motion.div initial={{ scale: 0.9, y: 10 }} animate={{ scale: 1, y: 0 }} className={`relative max-w-sm w-full rounded-3xl p-6 shadow-2xl ${pal.glass}`}>
+                <motion.div className={`absolute -top-8 -right-8 h-24 w-24 rounded-full ${win ? 'bg-emerald-400/25' : 'bg-rose-400/25'}`} animate={{ scale: [1, 1.1, 1], opacity: [0.5, 0.9, 0.5] }} transition={{ repeat: Infinity, duration: 2.4 }} />
                 <div className="flex items-center gap-3 mb-3">
                   <div className={`h-11 w-11 rounded-2xl flex items-center justify-center text-2xl ${win ? 'bg-emerald-500/20 border border-emerald-400/40' : 'bg-rose-500/20 border border-rose-400/40'}`}>{win ? '🏆' : '💀'}</div>
                   <div>
@@ -294,11 +344,11 @@ useEffect(() => {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  <button onClick={() => reset(n)} className="min-h-11 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white">{win ? 'Play Again' : 'Try Again'}</button>
+                  <button onClick={() => reset(n)} className="min-h-10 px-4 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white">{win ? 'Play Again' : 'Try Again'}</button>
                   {win && (
-                    <button onClick={() => { setWin(false); setKeptGoing(true); persist({ n, tiles, score, best, theme, keptGoing: true }); }} className={`min-h-11 px-4 py-2 rounded-xl border ${isDark ? 'border-white/10 bg-white/10' : 'border-zinc-300 bg-white/60'}`}>Keep Going</button>
+                    <button onClick={() => { setWin(false); setKeptGoing(true); persist({ n, tiles, score, best, theme, keptGoing: true }); }} className={`min-h-10 px-4 rounded-full border ${pal.surface}`}>Keep Going</button>
                   )}
-                  <button onClick={() => { setOver(false); setWin(false); }} className={`min-h-11 px-4 py-2 rounded-xl border ${isDark ? 'border-white/10 bg-white/5' : 'border-zinc-300 bg-white'}`}>Close</button>
+                  <button onClick={() => { setOver(false); setWin(false); }} className={`min-h-10 px-4 rounded-full border ${pal.surface}`}>Close</button>
                 </div>
               </motion.div>
             </motion.div>
@@ -311,8 +361,9 @@ useEffect(() => {
 
 function Stat({ label, value, theme }) {
   const isDark = theme === 'dark';
+  const frame = isDark ? 'from-white/10 to-transparent border-white/10' : 'from-zinc-200 to-transparent border-zinc-300';
   return (
-    <div className={`rounded-2xl px-3 py-2 border ${isDark ? 'border-white/10 bg-white/5 backdrop-blur' : 'border-zinc-300 bg-white/70'}`}>
+    <div className={`rounded-2xl px-3 py-2 border bg-gradient-to-b ${frame}`}>
       <div className="text-[10px] uppercase tracking-wider opacity-70">{label}</div>
       <div className="text-xl font-semibold tabular-nums">{value}</div>
     </div>
