@@ -9,16 +9,20 @@ const rnd = (n) => Math.floor(Math.random() * n);
 const uid = (() => { let i = 1; return () => i++; })();
 const empty = (n) => Array.from({ length: n }, () => Array(n).fill(null));
 const cloneTiles = (tiles) => tiles.map((t) => ({ ...t }));
-const toBoard = (tiles, n) => { const b = empty(n); for (const t of tiles) b[t.r][t.c] = t; return b; };
+const toBoard = (tiles, n) => { const b = empty(n); for (const t of tiles) if(!b[t.r][t.c]) b[t.r][t.c] = t; return b; };
 
 function spawn(tiles, n, bias = 0.9) {
-  const b = toBoard(tiles, n);
-  const free = [];
-  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (!b[r][c]) free.push([r, c]);
-  if (free.length === 0) return tiles;
-  const [r, c] = free[rnd(free.length)];
-  const v = Math.random() < bias ? 2 : 4;
-  return [...tiles, { id: uid(), r, c, value: v }];
+  // safe spawn: never place on an occupied cell even if upstream array had duplicates
+  const trySpawn = (arr) => {
+    const b = toBoard(arr, n);
+    const free = [];
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (!b[r][c]) free.push([r, c]);
+    if (free.length === 0) return arr;
+    const [r, c] = free[rnd(free.length)];
+    const v = Math.random() < bias ? 2 : 4;
+    return [...arr, { id: uid(), r, c, value: v }];
+  };
+  return trySpawn(sanitize(tiles));
 }
 
 function slideLine(line, dir) {
@@ -35,6 +39,7 @@ function slideLine(line, dir) {
     if (ni !== i) {
       if (line[ni] && line[ni].value === t.value && !locked.has(ni)) {
         const newVal = line[ni].value * 2;
+        // merge into destination tile, keep its id for smoother animation
         line[ni] = { ...line[ni], value: newVal, bump: true };
         line[i] = null; t.dead = true; locked.add(ni); moved = true; gained += newVal;
       } else { line[ni] = t; line[i] = null; moved = true; }
@@ -62,10 +67,10 @@ function move(tiles, n, dir) {
     }
   }
   const next = []; for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (b[r][c]) next.push(b[r][c]);
-  return { tiles: next.filter(t => !t.dead), moved, gained };
+  return { tiles: sanitize(next.filter(t => !t.dead)), moved, gained };
 }
 
-const anyMovesLeft = (board) => {
+function anyMovesLeft(board) {
   const n = board.length;
   for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
     const t = board[r][c]; if (!t) return true;
@@ -73,7 +78,21 @@ const anyMovesLeft = (board) => {
     if (c + 1 < n && board[r][c + 1] && board[r][c + 1].value === t.value) return true;
   }
   return false;
-};
+}
+
+// remove accidental duplicates (same r,c). Keep higher value.
+function sanitize(arr) {
+  const out = [];
+  const map = new Map();
+  for (const t of arr) {
+    const k = t.r + '_' + t.c;
+    if (!map.has(k)) { map.set(k, t); continue; }
+    const curr = map.get(k);
+    map.set(k, (curr.value >= t.value) ? curr : t);
+  }
+  for (const v of map.values()) out.push(v);
+  return out;
+}
 
 // ---------- persistence (cookies + localStorage) ----------
 const STORE_KEY = 'g2048_state_v1';
@@ -103,7 +122,6 @@ const palettes = {
 };
 
 const tileStyle = (v, theme) => {
-  // calm pastel gradient swatches per value
   const base = theme === 'light'
     ? {
         2:  "from-[#D9FBFF] to-[#CFE8FF] text-zinc-800",
@@ -190,7 +208,7 @@ export default function Game2048() {
         const nextScore = score + gained;
         const nextBest = Math.max(best, nextScore);
         persist({ n, tiles: after, score: nextScore, best: nextBest, theme, keptGoing });
-        return after;
+        return sanitize(after);
       });
       setScore((s) => { const ns = s + gained; setBest((b) => Math.max(b, ns)); return ns; });
       const maxNow = Math.max(...res.tiles.map((t) => t.value));
@@ -209,13 +227,13 @@ export default function Game2048() {
       if (typeof saved.best === 'number') setBest(saved.best);
       if (typeof saved.score === 'number') setScore(saved.score);
       if (typeof saved.keptGoing === 'boolean') setKeptGoing(saved.keptGoing);
-      setTiles(saved.tiles);
+      setTiles(sanitize(saved.tiles));
     }
   }, []);
 
   // persist prefs & non-volatile state
   useEffect(() => { 
-    persist({ n, tiles, score, best, theme, keptGoing }); 
+    persist({ n, tiles: sanitize(tiles), score, best, theme, keptGoing }); 
   }, [n, tiles, score, best, theme, keptGoing]);
 
   // keyboard
@@ -254,16 +272,17 @@ export default function Game2048() {
   );
 
   const ThemeToggle = () => {
-    const TRACK_W = 96, KNOB_W = 52, PADDING = 4;
+    // Fix: smaller knob + more inner padding so sun icon is fully visible in dark mode
+    const TRACK_W = 88, KNOB_W = 44, PADDING = 6; // was 96/56/4
     const x = isDark ? 0 : TRACK_W - KNOB_W - PADDING*2;
     return (
-      <button aria-pressed={isDark} title="Toggle theme" onClick={() => setTheme((t)=>t==='dark'?'light':'dark')} className={`relative w-24 h-10 rounded-full border overflow-hidden ${pal.track}`}>
+      <button aria-pressed={isDark} title="Toggle theme" onClick={() => setTheme((t)=>t==='dark'?'light':'dark')} className={`relative h-10 rounded-full border overflow-hidden ${pal.track}`} style={{ width: TRACK_W }}>
         <motion.div key={theme} initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ duration:0.25 }} className={`absolute inset-0 ${isDark? 'bg-gradient-to-r from-zinc-900/40 to-zinc-700/40':'bg-gradient-to-r from-amber-200/50 to-orange-200/50'}`} />
-        <div className="absolute inset-0 pointer-events-none grid grid-cols-2 place-items-center text-sm z-10">
+        <div className="absolute inset-0 pointer-events-none grid grid-cols-2 place-items-center text-sm z-20 px-2">
           <span className={`${isDark ? 'opacity-100' : 'opacity-60'}`}>🌙</span>
           <span className={`${!isDark ? 'opacity-100' : 'opacity-60'}`}>☀️</span>
         </div>
-        <motion.div aria-hidden className={`absolute top-1 h-8 rounded-full shadow-md z-20 ${isDark?'bg-zinc-800':'bg-amber-300'}`} style={{ width: KNOB_W, left: PADDING }} animate={{ x }} transition={{ type:'spring', stiffness:320, damping:28 }} />
+        <motion.div aria-hidden className={`absolute top-1 rounded-full shadow-md z-10 ${isDark?'bg-zinc-800':'bg-amber-300'}`} style={{ width: KNOB_W, height: 32, left: PADDING }} animate={{ x }} transition={{ type:'spring', stiffness:320, damping:28 }} />
       </button>
     );
   };
