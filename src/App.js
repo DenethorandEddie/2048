@@ -169,8 +169,9 @@ export default function Game2048() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // persist preferences
-  useEffect(() => { persist({ n, tiles, score, best, theme, keptGoing }); }, [theme, n]);
+useEffect(() => { 
+  persist({ n, tiles, score, best, theme, keptGoing }); 
+}, [n, tiles, score, best, theme, keptGoing]);
 
   // keyboard
   useEffect(() => {
@@ -183,7 +184,7 @@ export default function Game2048() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [tiles, n, busy, over, keptGoing]);
+  }, [tiles, n, busy, over, keptGoing, step]);
 
   // touch
   const swipe = useRef({ x: 0, y: 0 });
